@@ -30,20 +30,32 @@ async function Dashboard() {
 
   const nurseName = new Map(nurses.map((n) => [nurseIdOf(n), nurseNameOf(n)]));
 
-  // Credentials on the Nurses tab plus rows from the Compliance Docs tab.
-  const docRows = [
-    ...nurseCredentialExpiries(nurses).map((c) => ({
-      who: c.name, document: c.document, expires: c.expires, days: c.days,
-    })),
-    ...docs.flatMap((d) => {
-      const days = daysUntilExpiry(d["Expiry Date"]);
-      if (days === null) return [];
-      return [{
-        who: nurseName.get(d["Related ID"]) ?? d["Related Party Name (lookup)"] ?? d["Related ID"],
-        document: d["Document Type"], expires: d["Expiry Date"], days,
-      }];
-    }),
-  ].sort((a, b) => a.days - b.days);
+  // Engagement ID -> patient name, so engagement-level documents show who they belong to.
+  const engagementLabel = new Map(
+    engagements.map((e) => [e.EngagementID, e["Patient Name (lookup)"] ? `${e.EngagementID} · ${e["Patient Name (lookup)"]}` : e.EngagementID]),
+  );
+
+  const docEntries = docs.flatMap((d) => {
+    const days = daysUntilExpiry(d["Expiry Date"]);
+    if (days === null) return [];
+    const id = d["Related ID"];
+    return [{
+      id,
+      who: nurseName.get(id) || d["Related Party Name (lookup)"] || engagementLabel.get(id) || id || "—",
+      document: d["Document Type"], expires: d["Expiry Date"], days,
+    }];
+  });
+
+  // Credentials on the Nurses tab, minus any already covered by a Compliance Docs row
+  // for the same nurse + same expiry date + matching document name (avoids duplicates).
+  const nurseCreds = nurseCredentialExpiries(nurses)
+    .filter((c) => !docEntries.some((d) =>
+      d.id === c.nurseId && d.expires === c.expires &&
+      d.document.toLowerCase().startsWith(c.document.toLowerCase())))
+    .map((c) => ({ who: c.name, document: c.document, expires: c.expires, days: c.days }));
+
+  const docRows = [...nurseCreds, ...docEntries].sort((a, b) => a.days - b.days);
+
   const expired = docRows.filter((d) => d.days < 0);
   const soon = docRows.filter((d) => d.days >= 0 && d.days <= 60);
   const blacked = nurses.filter((n) => isBlackedOut(availability, nurseIdOf(n)));
@@ -72,7 +84,7 @@ async function Dashboard() {
         <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-slate-500">
-              <tr><th className="p-3">Nurse</th><th className="p-3">Document</th><th className="p-3">Expires</th><th className="p-3">Days left</th></tr>
+              <tr><th className="p-3">Nurse / Engagement</th><th className="p-3">Document</th><th className="p-3">Expires</th><th className="p-3">Days left</th></tr>
             </thead>
             <tbody>
               {docRows.length === 0 && <tr><td className="p-3 text-slate-500" colSpan={4}>No dated documents yet.</td></tr>}
