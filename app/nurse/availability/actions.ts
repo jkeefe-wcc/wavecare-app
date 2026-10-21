@@ -40,11 +40,11 @@ function back(nurseId: string, isAdmin: boolean, params: Record<string, string> 
 
 export async function saveWeek(formData: FormData) {
   const a = await actor(formData.get("nurse"));
-  const checked = formData.getAll("days").filter((d): d is string => typeof d === "string");
-  const valid = checked.filter((d) => (DAYS as readonly string[]).includes(d));
+  const modes: Record<string, string> = {};
+  for (const d of DAYS) modes[d] = String(formData.get(`day_${d}`) ?? "No");
   let failed = false;
   try {
-    await updateByHeaders(TABS.NURSES, a.nurseRow, weekValues(valid));
+    await updateByHeaders(TABS.NURSES, a.nurseRow, weekValues(modes));
   } catch (err) {
     console.error("saveWeek failed", err);
     failed = true;

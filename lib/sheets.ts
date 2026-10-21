@@ -207,16 +207,19 @@ export function daysUntilExpiry(expiryDate: string): number | null {
   return Math.floor((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-// Layer 1 (recurring weekly pattern). The Nurses tab has no day columns yet, so this
-// looks for Avail_Mon / Availability_Mon style headers and returns "Not set" without them.
+// Layer 1 (recurring weekly pattern): Avail_Mon..Avail_Sun = Yes / Day / Night / No.
+// Returns e.g. "Mon, Tue (day), Wed (night)", or "Not set" when no days are open.
 export function availabilitySummary(nurse: Record<string, string>): string {
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const on = (v?: string) => ["yes", "true", "y", "x", "1"].includes((v ?? "").trim().toLowerCase());
-  const available = days.filter((d) => {
+  const parts = days.flatMap((d) => {
     const key = Object.keys(nurse).find((k) => new RegExp(`^avail\\w*[_ ]?${d}$`, "i").test(k));
-    return key ? on(nurse[key]) : false;
+    const v = (key ? nurse[key] : "").trim().toLowerCase();
+    if (["yes", "true", "y", "x", "1", "24hr"].includes(v)) return [d];
+    if (v === "day") return [`${d} (day)`];
+    if (v === "night") return [`${d} (night)`];
+    return [];
   });
-  return available.length > 0 ? available.join(", ") : "Not set";
+  return parts.length > 0 ? parts.join(", ") : "Not set";
 }
 
 export function isBlackedOut(

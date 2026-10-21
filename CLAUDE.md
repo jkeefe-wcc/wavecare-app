@@ -42,7 +42,7 @@ Headers are human-readable with spaces (`Expiry Date`, `First Name`, `Engagement
 Layout convention (applies to every tab): two merged title rows (1–2), header row = **row 3**, data starts at **row 4**. `lib/sheets.ts` hardcodes `HEADER_ROW = 3` and `DATA_ROW = 4` — do not change without updating the Sheet layout too.
 
 Tabs (7):
-1. **Nurses** — credential/profile data; ID column is `NurseID`; has `Avail_Mon` … `Avail_Sun` (Yes/blank) as the baseline recurring-availability layer; credential expiries live in-row (`CT License Expiry`, `NY License Expiry`, `Malpractice Expiry`). Lane is on the Engagements tab, not here.
+1. **Nurses** — credential/profile data; ID column is `NurseID`; has `Avail_Mon` … `Avail_Sun` as the baseline recurring-availability layer, values `Yes` (any shift) / `Day` / `Night` / `No` (legacy `Unknown`/blank = No); credential expiries live in-row (`CT License Expiry`, `NY License Expiry`, `Malpractice Expiry`). Lane is on the Engagements tab, not here.
 2. **Patients**
 3. **Engagements**
 4. **Shifts**
@@ -54,7 +54,10 @@ Three-layer nurse availability model (for anyone extending this): Layer 1 = recu
 
 ## Writes (nurse availability — built)
 
-`/nurse/availability` (N2): weekly pattern writes `Avail_Mon..Sun` (Yes/No) on the Nurses row; date overrides append/clear rows on Nurse_Availability. Server actions in `app/nurse/availability/actions.ts`: the nurse's `NurseID` always comes from the session (never the form); removals verify the row's `NurseID` matches; admins may edit any nurse via `?nurse=<NurseID>`. Writes use header-aware helpers in `lib/sheets.ts` (`updateByHeaders`, `appendByHeaders`, `clearRow`), which refuse to touch rows above the data start. Removal clears the row (leaves a blank row; reads skip blanks). Validation + notes sanitising (formula-injection guard) live in `lib/availability.ts`. Sheet dropdown values: Shift_Type = Day/Night/24hr, Type = Available/Blackout, Avail_* = Yes/No/Unknown.
+`/nurse/availability` (N2): weekly pattern writes `Avail_Mon..Sun` (Yes/No) on the Nurses row; date overrides append/clear rows on Nurse_Availability. Server actions in `app/nurse/availability/actions.ts`: the nurse's `NurseID` always comes from the session (never the form); removals verify the row's `NurseID` matches; admins may edit any nurse via `?nurse=<NurseID>`. Writes use header-aware helpers in `lib/sheets.ts` (`updateByHeaders`, `appendByHeaders`, `clearRow`), which refuse to touch rows above the data start. Removal clears the row (leaves a blank row; reads skip blanks). Validation + notes sanitising (formula-injection guard) live in `lib/availability.ts`. Sheet dropdown values: Shift_Type = Day/Night/24hr, Type = Available/Blackout, Avail_* = Yes/No/Unknown/Day/Night (validation on the sheet must include Day and Night).
+
+### Matching rules (`lib/availability.ts`)
+A shift is made of halves: Day, Night; 24hr = both (blank shift on an override = both). Per date and half: a Blackout covering it wins; else an Available override opens it; else the weekly pattern decides (Yes = both halves, Day/Night = that half, No/Unknown/blank = none). A range check requires every requested half on every date. `/admin/match` ("Find open nurses") uses `checkRange()` to list nurses open for the whole period vs partly open, flagging expired credentials. Framing: it builds a shortlist for an admin to present; the family chooses (never "assign").
 
 ## Role model
 

@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
 import { TABS, getRows, nurseIdOf, nurseNameOf } from "@/lib/sheets";
-import { DAYS, SHIFT_TYPES, OVERRIDE_TYPES } from "@/lib/availability";
+import { DAYS, SHIFT_TYPES, OVERRIDE_TYPES, normalizeWeekValue } from "@/lib/availability";
 import { saveWeek, addOverride, removeOverride } from "./actions";
 
 type SP = Promise<{ nurse?: string; error?: string; saved?: string }>;
@@ -66,14 +66,18 @@ async function AvailabilityView({ searchParams }: { searchParams: SP }) {
 
       <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="text-lg font-medium text-slate-900">Usual weekly pattern</h2>
-        <p className="text-sm text-slate-500">Days you&apos;re generally open to work.</p>
+        <p className="text-sm text-slate-500">For each day, whether you&apos;re generally open for any shift, days only, or nights only.</p>
         <form action={saveWeek} className="mt-4">
           {isAdmin && <input type="hidden" name="nurse" value={targetId} />}
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {DAYS.map((d) => (
-              <label key={d} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
-                <input type="checkbox" name="days" value={d} defaultChecked={nurse[`Avail_${d}`]?.toLowerCase() === "yes"} />
-                {d}
+              <label key={d} className="text-sm text-slate-700">{d}
+                <select name={`day_${d}`} className={input} defaultValue={normalizeWeekValue(nurse[`Avail_${d}`])}>
+                  <option value="No">Not available</option>
+                  <option value="Yes">Any shift</option>
+                  <option value="Day">Day only</option>
+                  <option value="Night">Night only</option>
+                </select>
               </label>
             ))}
           </div>

@@ -67,9 +67,12 @@ async function Dashboard() {
           <h1 className="text-2xl font-semibold text-slate-900">Admin dashboard</h1>
           <p className="text-sm text-slate-500">{session.user?.email}</p>
         </div>
-        <form action={async () => { "use server"; await signOut({ redirectTo: "/login" }); }}>
-          <button className="text-sm text-slate-600 underline">Sign out</button>
-        </form>
+        <div className="flex items-center gap-4">
+          <a href="/admin/match" className="text-sm font-medium text-slate-900 underline">Find open nurses</a>
+          <form action={async () => { "use server"; await signOut({ redirectTo: "/login" }); }}>
+            <button className="text-sm text-slate-600 underline">Sign out</button>
+          </form>
+        </div>
       </header>
 
       <section className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">

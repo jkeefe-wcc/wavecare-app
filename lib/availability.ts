@@ -71,8 +71,108 @@ export function nextAvailId(existing: string[]): string {
   return `${prefix}${String(max + 1).padStart(3, "0")}`;
 }
 
-// Weekly pattern cells for the Nurses tab: checked days become "Yes", the rest "No".
-export function weekValues(checked: string[]): Record<string, string> {
-  const set = new Set(checked);
-  return Object.fromEntries(DAYS.map((d) => [`Avail_${d}`, set.has(d) ? "Yes" : "No"]));
+// ---- Weekly pattern (Nurses tab, Avail_Mon..Avail_Sun) ----
+// Per-day value: Yes = any shift, Day = day only, Night = night only, No = not available.
+export const WEEK_MODES = ["No", "Yes", "Day", "Night"] as const;
+
+export function normalizeWeekValue(v?: string): (typeof WEEK_MODES)[number] {
+  const t = (v ?? "").trim().toLowerCase();
+  if (["yes", "true", "y", "x", "1", "24hr"].includes(t)) return "Yes";
+  if (t === "day") return "Day";
+  if (t === "night") return "Night";
+  return "No"; // No, Unknown and blank all mean "not open" for matching
+}
+
+// modes: { Mon: "Yes", Tue: "Day", ... } -> sheet cells. Anything unrecognised becomes "No".
+export function weekValues(modes: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    DAYS.map((d) => [`Avail_${d}`, normalizeWeekValue(modes[d])])
+  );
+}
+
+// ---- Date resolution ----
+// A shift is made of halves: Day, Night. 24hr = both. Blank shift on an override = both.
+export type Half = "Day" | "Night";
+
+export function halvesOfShift(shift?: string): Half[] {
+  const t = (shift ?? "").trim().toLowerCase();
+  if (t === "day") return ["Day"];
+  if (t === "night") return ["Night"];
+  return ["Day", "Night"]; // 24hr, blank, anything else
+}
+
+export function coverageOfWeekValue(v?: string): Half[] {
+  const m = normalizeWeekValue(v);
+  return m === "Yes" ? ["Day", "Night"] : m === "Day" ? ["Day"] : m === "Night" ? ["Night"] : [];
+}
+
+// Parse ISO (2026-12-24) or US sheet format (12/24/2026) to a UTC day number; null if invalid.
+export function parseDay(s?: string): number | null {
+  const t = (s ?? "").trim();
+  let y: number, m: number, d: number;
+  let mt = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(t);
+  if (mt) [y, m, d] = [Number(mt[1]), Number(mt[2]), Number(mt[3])];
+  else if ((mt = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(t))) [y, m, d] = [Number(mt[3]), Number(mt[1]), Number(mt[2])];
+  else return null;
+  const ms = Date.UTC(y, m - 1, d);
+  const dt = new Date(ms);
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null;
+  return ms / 86400000;
+}
+
+export const dayLabel = (n: number) => new Date(n * 86400000).toISOString().slice(0, 10);
+export const weekdayOf = (n: number) => DAYS[(new Date(n * 86400000).getUTCDay() + 6) % 7]; // Mon-first
+
+export type OverrideRow = { Type: string; Date_From: string; Date_To: string; Shift_Type: string };
+export type HalfResult = { available: boolean; reason: string };
+
+function covers(o: OverrideRow, day: number): boolean {
+  const from = parseDay(o.Date_From);
+  const to = parseDay(o.Date_To) ?? from;
+  return from !== null && to !== null && day >= from && day <= to;
+}
+
+// Blackout beats Available; an Available entry opens a day outside the usual pattern;
+// otherwise the weekly pattern decides.
+export function resolveHalf(
+  weekly: { [dayKey: string]: string },
+  overrides: OverrideRow[],
+  day: number,
+  half: Half
+): HalfResult {
+  const hits = overrides.filter((o) => covers(o, day) && halvesOfShift(o.Shift_Type).includes(half));
+  const blackout = hits.find((o) => o.Type === "Blackout");
+  if (blackout) return { available: false, reason: `Blackout ${blackout.Date_From} – ${blackout.Date_To}` };
+  if (hits.some((o) => o.Type === "Available")) return { available: true, reason: "Open on these dates" };
+  const wd = weekdayOf(day);
+  return coverageOfWeekValue(weekly[`Avail_${wd}`]).includes(half)
+    ? { available: true, reason: `Usual ${wd}` }
+    : { available: false, reason: `Not in usual ${wd} pattern` };
+}
+
+export type RangeCheck = {
+  daysChecked: number;
+  openDays: number; // days where every requested half is available
+  unavailable: { date: string; half: Half; reason: string }[];
+};
+
+export function checkRange(
+  weekly: { [dayKey: string]: string },
+  overrides: OverrideRow[],
+  fromDay: number,
+  toDay: number,
+  shift: string
+): RangeCheck {
+  const halves = halvesOfShift(shift);
+  const unavailable: RangeCheck["unavailable"] = [];
+  let openDays = 0;
+  for (let day = fromDay; day <= toDay; day++) {
+    let dayOpen = true;
+    for (const h of halves) {
+      const r = resolveHalf(weekly, overrides, day, h);
+      if (!r.available) { dayOpen = false; unavailable.push({ date: dayLabel(day), half: h, reason: r.reason }); }
+    }
+    if (dayOpen) openDays++;
+  }
+  return { daysChecked: toDay - fromDay + 1, openDays, unavailable };
 }
