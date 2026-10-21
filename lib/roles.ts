@@ -2,7 +2,7 @@ import { getNurses, getPatients, getEngagements } from "@/lib/sheets";
 
 export type Role = "admin" | "nurse" | "family";
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "jbkeefe@gmail.com")
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "jkeefe@wavecareconcierge.com,jbkeefe@gmail.com")
   .split(",")
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
