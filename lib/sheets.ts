@@ -32,7 +32,7 @@ export async function getRows(tab: string): Promise<Record<string, string>[]> {
   const sheets = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: `${tab}!A${HEADER_ROW}:Z`,
+    range: `${tab}!A${HEADER_ROW}:AZ`,
   });
 
   const rows = res.data.values ?? [];
@@ -105,21 +105,36 @@ export async function getNurseAvailability() {
   return getRows(TABS.NURSE_AVAILABILITY);
 }
 
+// --- Header helpers ---
+// The sheet's headers are human-readable ("CT License Expiry", "NurseID"), and the
+// Nurse_Availability tab uses "Nurse_ID". These helpers hide that inconsistency.
+
+export const nurseIdOf = (row: Record<string, string>) =>
+  row.NurseID || row.Nurse_ID || "";
+
+export const nurseNameOf = (row: Record<string, string>) =>
+  [row["First Name"], row["Last Name"]].filter(Boolean).join(" ") || nurseIdOf(row);
+
 // --- Virtual columns ---
 
 export function daysUntilExpiry(expiryDate: string): number | null {
   if (!expiryDate) return null;
   const expiry = new Date(expiryDate);
+  if (Number.isNaN(expiry.getTime())) return null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return Math.floor((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+// Layer 1 (recurring weekly pattern). The Nurses tab has no day columns yet, so this
+// looks for Avail_Mon / Availability_Mon style headers and returns "Not set" without them.
 export function availabilitySummary(nurse: Record<string, string>): string {
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const available = days.filter(
-    (d) => nurse[`Availability_${d}`]?.toLowerCase() === "yes"
-  );
+  const on = (v?: string) => ["yes", "true", "y", "x", "1"].includes((v ?? "").trim().toLowerCase());
+  const available = days.filter((d) => {
+    const key = Object.keys(nurse).find((k) => new RegExp(`^avail\\w*[_ ]?${d}$`, "i").test(k));
+    return key ? on(nurse[key]) : false;
+  });
   return available.length > 0 ? available.join(", ") : "Not set";
 }
 
@@ -128,11 +143,32 @@ export function isBlackedOut(
   nurseId: string,
   date: Date = new Date()
 ): boolean {
+  if (!nurseId) return false;
   return availability
-    .filter((a) => a.Nurse_ID === nurseId && a.Type === "Blackout")
+    .filter((a) => nurseIdOf(a) === nurseId && a.Type === "Blackout")
     .some((a) => {
       const from = new Date(a.Date_From);
       const to = new Date(a.Date_To);
       return date >= from && date <= to;
     });
+}
+
+// Credential expiries stored directly on the Nurses tab ("CT License Expiry", etc.).
+export function nurseCredentialExpiries(nurses: Record<string, string>[]) {
+  const out: { nurseId: string; name: string; document: string; expires: string; days: number }[] = [];
+  for (const n of nurses) {
+    for (const [header, value] of Object.entries(n)) {
+      if (!/expiry$/i.test(header) || !value) continue;
+      const days = daysUntilExpiry(value);
+      if (days === null) continue;
+      out.push({
+        nurseId: nurseIdOf(n),
+        name: nurseNameOf(n),
+        document: header.replace(/\s*expiry$/i, ""),
+        expires: value,
+        days,
+      });
+    }
+  }
+  return out;
 }

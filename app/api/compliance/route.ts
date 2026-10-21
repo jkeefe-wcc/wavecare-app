@@ -9,7 +9,7 @@ export async function GET() {
     const docs = await getComplianceDocs();
     const enriched = docs.map((doc) => ({
       ...doc,
-      Days_Until_Expiry: daysUntilExpiry(doc.Expiry_Date),
+      Days_Until_Expiry: daysUntilExpiry(doc["Expiry Date"]),
     }));
     return NextResponse.json(enriched);
   } catch (err) {

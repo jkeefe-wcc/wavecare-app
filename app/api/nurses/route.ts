@@ -1,6 +1,6 @@
 import { requireRoleApi } from "@/lib/guard";
 import { NextResponse } from "next/server";
-import { getNurses, getNurseAvailability, availabilitySummary, isBlackedOut } from "@/lib/sheets";
+import { getNurses, getNurseAvailability, availabilitySummary, isBlackedOut, nurseIdOf } from "@/lib/sheets";
 
 export async function GET() {
   const denied = await requireRoleApi("admin");
@@ -14,7 +14,7 @@ export async function GET() {
     const enriched = nurses.map((nurse) => ({
       ...nurse,
       Availability_Summary: availabilitySummary(nurse),
-      Is_Blacked_Out: isBlackedOut(availability, nurse.Nurse_ID),
+      Is_Blacked_Out: isBlackedOut(availability, nurseIdOf(nurse)),
     }));
 
     return NextResponse.json(enriched);

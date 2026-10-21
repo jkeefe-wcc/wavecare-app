@@ -37,16 +37,18 @@ Service account: `wavecare-drive-automation@wavecare-operations.iam.gserviceacco
 
 Google Sheet `WaveCare_Data_Scaffold_v1`, ID `17UXMYibGNbYm_z30CZlSNTrMi-r8Ap3mq7FnmBwjw3s`.
 
+Headers are human-readable with spaces (`Expiry Date`, `First Name`, `Engagement Status`) — code matches them exactly; use `nurseIdOf()` / `nurseNameOf()` in `lib/sheets.ts` rather than hardcoding. The API read range is `A3:AZ`, so keep tabs under 52 columns.
+
 Layout convention (applies to every tab): two merged title rows (1–2), header row = **row 3**, data starts at **row 4**. `lib/sheets.ts` hardcodes `HEADER_ROW = 3` and `DATA_ROW = 4` — do not change without updating the Sheet layout too.
 
 Tabs (7):
-1. **Nurses** — credential/profile data; includes Lane (1 or 2) and day-of-week availability booleans (`Availability_Mon` … `Availability_Sun`) as the baseline recurring-availability layer.
+1. **Nurses** — credential/profile data; ID column is `NurseID`; has `Avail_Mon` … `Avail_Sun` (Yes/blank) as the baseline recurring-availability layer; credential expiries live in-row (`CT License Expiry`, `NY License Expiry`, `Malpractice Expiry`). Lane is on the Engagements tab, not here.
 2. **Patients**
 3. **Engagements**
 4. **Shifts**
-5. **Compliance Docs** — license/cert expirations; `Days_Until_Expiry` is a virtual column computed from `Expiry_Date`.
+5. **Compliance Docs** — license/cert expirations; columns include `Document Type`, `Related ID`, `Expiry Date` (the sheet's own `Days to Expiry` is a formula; the app recomputes it).
 6. **Concierge Services**
-7. **Nurse_Availability** — the second/third availability layer: date-ranged overrides on top of the Nurses tab's recurring booleans. Columns: `Nurse_ID`, `Date_From`, `Date_To`, `Shift_Type`, `Type` (`Available` or `Blackout`), `Notes`. `Blackout_Dates` on the Nurses tab is deprecated in favor of this tab.
+7. **Nurse_Availability** — the second/third availability layer: date-ranged overrides on top of the Nurses tab's recurring booleans. Columns: `Avail_ID`, `NurseID`, `Date_From`, `Date_To`, `Shift_Type`, `Type` (`Available` or `Blackout`), `Notes`. `Blackout_Dates` on the Nurses tab is deprecated in favor of this tab.
 
 Three-layer nurse availability model (for anyone extending this): Layer 1 = recurring weekly pattern (Nurses tab booleans). Layer 2/3 = date-specific overrides, both explicit availability windows and blackouts (Nurse_Availability tab). `isBlackedOut()` and `availabilitySummary()` in `lib/sheets.ts` implement the merge logic.
 

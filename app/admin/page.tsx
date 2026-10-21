@@ -3,6 +3,7 @@ import { requireRolePage } from "@/lib/guard";
 import {
   getNurses, getEngagements, getComplianceDocs, getNurseAvailability,
   daysUntilExpiry, availabilitySummary, isBlackedOut,
+  nurseIdOf, nurseNameOf, nurseCredentialExpiries,
 } from "@/lib/sheets";
 import { signOut } from "@/auth";
 import { Suspense } from "react";
@@ -27,17 +28,25 @@ async function Dashboard() {
     getNurses(), getEngagements(), getComplianceDocs(), getNurseAvailability(),
   ]);
 
-  const nurseName = new Map(
-    nurses.map((n) => [n.Nurse_ID, pick(n, /name/i) || n.Nurse_ID]),
-  );
+  const nurseName = new Map(nurses.map((n) => [nurseIdOf(n), nurseNameOf(n)]));
 
-  const docRows = docs
-    .map((doc) => ({ doc, days: daysUntilExpiry(doc.Expiry_Date) }))
-    .filter((d) => d.days !== null)
-    .sort((a, b) => a.days! - b.days!);
-  const expired = docRows.filter((d) => d.days! < 0);
-  const soon = docRows.filter((d) => d.days! >= 0 && d.days! <= 60);
-  const blacked = nurses.filter((n) => isBlackedOut(availability, n.Nurse_ID));
+  // Credentials on the Nurses tab plus rows from the Compliance Docs tab.
+  const docRows = [
+    ...nurseCredentialExpiries(nurses).map((c) => ({
+      who: c.name, document: c.document, expires: c.expires, days: c.days,
+    })),
+    ...docs.flatMap((d) => {
+      const days = daysUntilExpiry(d["Expiry Date"]);
+      if (days === null) return [];
+      return [{
+        who: nurseName.get(d["Related ID"]) ?? d["Related Party Name (lookup)"] ?? d["Related ID"],
+        document: d["Document Type"], expires: d["Expiry Date"], days,
+      }];
+    }),
+  ].sort((a, b) => a.days - b.days);
+  const expired = docRows.filter((d) => d.days < 0);
+  const soon = docRows.filter((d) => d.days >= 0 && d.days <= 60);
+  const blacked = nurses.filter((n) => isBlackedOut(availability, nurseIdOf(n)));
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
@@ -67,13 +76,13 @@ async function Dashboard() {
             </thead>
             <tbody>
               {docRows.length === 0 && <tr><td className="p-3 text-slate-500" colSpan={4}>No dated documents yet.</td></tr>}
-              {docRows.slice(0, 25).map(({ doc: d, days }, i) => (
+              {docRows.slice(0, 25).map((d, i) => (
                 <tr key={i} className="border-t border-slate-100">
-                  <td className="p-3">{nurseName.get(d.Nurse_ID) ?? d.Nurse_ID}</td>
-                  <td className="p-3">{pick(d, /doc.*(type|name)|type|agreement/i)}</td>
-                  <td className="p-3">{d.Expiry_Date}</td>
-                  <td className={`p-3 font-medium ${days! < 0 ? "text-red-600" : days! <= 60 ? "text-amber-600" : "text-slate-700"}`}>
-                    {days! < 0 ? `${-days!} overdue` : days}
+                  <td className="p-3">{d.who}</td>
+                  <td className="p-3">{d.document}</td>
+                  <td className="p-3">{d.expires}</td>
+                  <td className={`p-3 font-medium ${d.days < 0 ? "text-red-600" : d.days <= 60 ? "text-amber-600" : "text-slate-700"}`}>
+                    {d.days < 0 ? `${-d.days} overdue` : d.days}
                   </td>
                 </tr>
               ))}
@@ -88,8 +97,8 @@ async function Dashboard() {
           <ul className="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white text-sm">
             {nurses.length === 0 && <li className="p-3 text-slate-500">No nurses yet.</li>}
             {nurses.map((n) => (
-              <li key={n.Nurse_ID} className="flex items-center justify-between p-3">
-                <span>{nurseName.get(n.Nurse_ID)}</span>
+              <li key={nurseIdOf(n)} className="flex items-center justify-between p-3">
+                <span>{nurseNameOf(n)}</span>
                 <span className="text-slate-500">
                   {availabilitySummary(n)}
                   {blacked.includes(n) && <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 text-red-700">blacked out</span>}
@@ -104,8 +113,8 @@ async function Dashboard() {
             {engagements.length === 0 && <li className="p-3 text-slate-500">No engagements yet.</li>}
             {engagements.map((e, i) => (
               <li key={i} className="flex items-center justify-between p-3">
-                <span>{pick(e, /^engagement_id$/i) || pick(e, /id/i)}</span>
-                <span className="text-slate-500">{pick(e, /status/i)}</span>
+                <span>{e.EngagementID}</span>
+                <span className="text-slate-500">{e["Engagement Status"]}</span>
               </li>
             ))}
           </ul>
