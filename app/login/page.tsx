@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { signIn } from "@/auth";
 
@@ -6,6 +7,7 @@ async function LoginForm({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
+  await connection();
   const { error } = await searchParams;
   return (
     <main className="min-h-screen flex items-center justify-center bg-slate-50 px-4">

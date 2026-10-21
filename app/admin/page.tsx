@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { requireRolePage } from "@/lib/guard";
 import {
   getNurses, getEngagements, getComplianceDocs, getNurseAvailability,
@@ -20,6 +21,7 @@ function Card({ label, value, tone = "" }: { label: string; value: number | stri
 }
 
 async function Dashboard() {
+  await connection();
   const session = await requireRolePage("admin");
   const [nurses, engagements, docs, availability] = await Promise.all([
     getNurses(), getEngagements(), getComplianceDocs(), getNurseAvailability(),
