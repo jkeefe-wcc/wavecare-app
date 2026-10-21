@@ -13,7 +13,8 @@ Business model context (for feature decisions, not enforced in code): two lanes 
 - **Framework:** Next.js (App Router) + TypeScript + Tailwind, created with `create-next-app`.
 - **Data layer:** `lib/sheets.ts` — a Google Sheets API client authenticated via `google-auth-library` JWT (service account), wrapping the `WaveCare_Data_Scaffold_v1` spreadsheet. No database; the Sheet is the system of record.
 - **API routes:** `app/api/<resource>/route.ts` — thin wrappers that call the typed fetchers in `lib/sheets.ts`, add computed/virtual columns server-side, and return JSON. One route per DataScaffold tab.
-- **Auth (planned, not yet built):** Google OAuth via NextAuth, scoped by role — Admin matched to `jbkeefe@gmail.com`, Nurse and Family roles matched by email against the Nurses/Patients tabs.
+- **Auth (built, untested against live Google):** Auth.js v5 (`auth.ts`) with Google sign-in. `lib/roles.ts` resolves a verified email to a role: admin = `ADMIN_EMAILS` env (default `jbkeefe@gmail.com`); nurse = email in any `*email*` column on Nurses; family = email in any `*email*` column on Patients/Engagements. Unknown emails cannot sign in. Roles are re-resolved from the sheet on every token refresh. `lib/guard.ts` has `requireRolePage` / `requireRoleApi`. All data API routes are currently admin-only; nurse/family scoping comes with their screens.
+- **Next.js 16 notes:** Cache Components is on — no `export const dynamic`; wrap request-time data (auth, searchParams) in `<Suspense>`. Fonts are system fonts (no Google Fonts fetch at build).
 - **Deploy target:** Vercel.
 
 ## Security constraints (hard rule — do not relax)
@@ -70,9 +71,12 @@ Env vars required (`.env.local`, never committed):
 GOOGLE_SERVICE_ACCOUNT_EMAIL=
 GOOGLE_PRIVATE_KEY=       # full PEM, \n-escaped
 SHEET_ID=17UXMYibGNbYm_z30CZlSNTrMi-r8Ap3mq7FnmBwjw3s
-NEXTAUTH_SECRET=
-NEXTAUTH_URL=
+AUTH_SECRET=              # openssl rand -base64 32
+AUTH_GOOGLE_ID=           # OAuth client ID (GCP console > Credentials)
+AUTH_GOOGLE_SECRET=
+ADMIN_EMAILS=jbkeefe@gmail.com   # comma-separated, optional
 ```
+On Vercel set the same vars; the OAuth client's redirect URI must be `<site>/api/auth/callback/google`.
 
 ## Key assets
 

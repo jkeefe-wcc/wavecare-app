@@ -1,7 +1,10 @@
+import { requireRoleApi } from "@/lib/guard";
 import { NextResponse } from "next/server";
 import { getNurses, getNurseAvailability, availabilitySummary, isBlackedOut } from "@/lib/sheets";
 
 export async function GET() {
+  const denied = await requireRoleApi("admin");
+  if (denied) return denied;
   try {
     const [nurses, availability] = await Promise.all([
       getNurses(),
