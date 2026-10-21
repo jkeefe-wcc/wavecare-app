@@ -61,7 +61,7 @@ A shift is made of halves: Day, Night; 24hr = both (blank shift on an override =
 
 ## Role model
 
-- **Admin** — full access; matched to `jbkeefe@gmail.com`. Screens A1–A7.
+- **Admin** — full access; `ADMIN_EMAILS` (default `jkeefe@wavecareconcierge.com`, `jbkeefe@gmail.com`; admin takes priority over nurse if an email is in both). Screens A1–A7.
 - **Nurse** — sees/manages own availability (built), compliance docs, assigned engagements. Screens N1–N4. N2 ("My Availability") is the two-part screen: recurring weekly pattern + date-range overrides against Nurse_Availability.
 - **Family** — sees own engagement/shift info only. Screens F1–F3.
 
@@ -86,6 +86,38 @@ AUTH_GOOGLE_SECRET=
 ADMIN_EMAILS=jkeefe@wavecareconcierge.com,jbkeefe@gmail.com   # comma-separated, optional
 ```
 On Vercel set the same vars; the OAuth client's redirect URI must be `<site>/api/auth/callback/google`.
+
+## Deployment & hosting
+
+- **Live app:** https://wavecare-app.vercel.app (Vercel project `wavecare-app`, team "Wave Care Concierge", **Hobby plan**). Vercel's Hobby terms are non-commercial — move to **Pro** before real nurses/families use it.
+- **Repo:** https://github.com/jkeefe-wcc/wavecare-app (private, GitHub account `jkeefe-wcc`, signed up with jkeefe@wavecareconcierge.com). `main` auto-deploys to Vercel on push. Vercel and the Claude GitHub app are each installed on this one repo only.
+- **Env vars** are set in Vercel (Project → Settings → Environment Variables) as listed under Build / run, plus `AUTH_TRUST_HOST=true`. Never paste secret values into chat; the user enters them directly.
+- **Google OAuth:** client `wavecare-app` (Web application) in GCP project `wavecare-operations` (Google Auth Platform → Clients), consent screen External/Testing with test users = the two admin emails. Authorized redirect URIs: `http://localhost:3000/api/auth/callback/google` and `https://wavecare-app.vercel.app/api/auth/callback/google`. **Before nurses/families sign in, publish the consent screen** (Testing mode only allows listed test users) and add any new domain's redirect URI. Client ID/secret are in `C:\Users\jbkee\.env\wavecare-oauth.txt` (local only).
+- **Google Sheets API** must be enabled on the GCP project (it was initially off — caused the first dashboard error).
+
+## Decisions & rationale
+
+- **Sheet as database (pilot):** the DataScaffold Google Sheet is the sole system of record; Vercel stores no data (only the login cookie and operational logs). Chosen for transparency and ease of hand-fixing. All access goes through `lib/sheets.ts`, so a later move to Postgres means swapping that layer plus a one-time import and a small header-mapping step. Sheet limits to remember: ~60 reads/min quota (hence the 5-minute role cache), no transactions (simultaneous edits can overwrite), no enforced uniqueness/links, slows past a few thousand rows. Revisit at real volume or when compliance requires it (row/column-level access, audit logs, a BAA).
+- **Custom Next.js app instead of AppSheet:** no per-seat cost, full control.
+- **Nurse edits go directly to the sheet** (no approval step). Admins can correct entries via `/nurse/availability?nurse=<NurseID>`.
+- **Headers stay human-readable** in the sheet; code matches them rather than renaming the sheet.
+
+## Open compliance question (needs the healthcare attorney)
+
+The Patients tab holds name, DOB, address, surgery type/date, surgeon, hospital and discharge dates. Treat it as sensitive health-related information regardless of whether HIPAA formally applies to WCC (self-pay registry; undetermined). Rules of thumb until counsel advises: keep clinical notes, diagnoses and medical detail out of the sheet and the app (including free-text Notes); keep sheet access limited to the owner and the service account; Vercel Hobby/Pro have no BAA. Also relevant: CT data-privacy and breach-notification law.
+
+## Status & roadmap
+
+Built: Google login with role resolution; admin dashboard (counts, credential/compliance expiry, nurses, engagements); nurse My Availability (N2) with weekly Yes/Day/Night/No pattern + date overrides; admin "Find open nurses" (`/admin/match`); read-only admin API routes for all 7 tabs.
+Not built: remaining nurse screens (own credentials, engagements — N1/N3/N4); family screens F1–F3 (`/family` is a placeholder); remaining admin screens (A1–A7 spec); credential-expiry email automations (Auto-1…5); engagement/shift/concierge-service editing; write validation beyond availability.
+Housekeeping: delete sample data before real use — **"Katherine Donovan" (N-001), engagement E-001 and their documents are fictional scaffold entries**, and her placeholder email could grant sign-in to whoever owns it. Sheet dropdowns to fix: Shift_Type should be Day/Night/24hr (currently the list sits on the Type column), Type should be Available/Blackout, and `Avail_*` validation needs Day and Night added.
+
+## Gotchas / working notes
+
+- The Claude session sandbox cannot reach Google (oauth2.googleapis.com is blocked), so the app can't be exercised against the real sheet from there; test logic with in-memory fakes and verify on Vercel/locally. Production build also works offline because fonts are system fonts.
+- Google Drive MCP can read the sheet (download as xlsx for headers) but cannot write cells.
+- Server actions that call `redirect()` must not wrap it in a try/catch that swallows it (see `actions.ts`).
+- Notes written with USER_ENTERED are sanitised against spreadsheet formula injection (`sanitizeNotes`).
 
 ## Key assets
 
