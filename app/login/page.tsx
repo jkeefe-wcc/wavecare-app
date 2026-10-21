@@ -23,7 +23,7 @@ async function LoginForm({
           className="mt-6"
           action={async () => {
             "use server";
-            await signIn("google", { redirectTo: "/admin" });
+            await signIn("google", { redirectTo: "/" });
           }}
         >
           <button className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700">

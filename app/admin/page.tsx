@@ -110,7 +110,10 @@ async function Dashboard() {
             {nurses.length === 0 && <li className="p-3 text-slate-500">No nurses yet.</li>}
             {nurses.map((n) => (
               <li key={nurseIdOf(n)} className="flex items-center justify-between p-3">
-                <span>{nurseNameOf(n)}</span>
+                <span>
+                  {nurseNameOf(n)}{" "}
+                  <a href={`/nurse/availability?nurse=${encodeURIComponent(nurseIdOf(n))}`} className="text-xs text-slate-500 underline">edit availability</a>
+                </span>
                 <span className="text-slate-500">
                   {availabilitySummary(n)}
                   {blacked.includes(n) && <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 text-red-700">blacked out</span>}

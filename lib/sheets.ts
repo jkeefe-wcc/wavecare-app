@@ -27,8 +27,10 @@ export const TABS = {
   NURSE_AVAILABILITY: "Nurse_Availability",
 } as const;
 
-// Generic fetch: returns array of objects keyed by header row
-export async function getRows(tab: string): Promise<Record<string, string>[]> {
+// Fetch with absolute sheet row numbers (needed for targeted edits). Blank rows are skipped.
+export async function getRowsIndexed(
+  tab: string
+): Promise<{ row: number; data: Record<string, string> }[]> {
   const sheets = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
@@ -39,12 +41,91 @@ export async function getRows(tab: string): Promise<Record<string, string>[]> {
   if (rows.length < 2) return [];
 
   const headers = rows[0] as string[];
-  return rows.slice(1).map((row) => {
-    const obj: Record<string, string> = {};
-    headers.forEach((h, i) => {
-      obj[h] = (row[i] as string) ?? "";
-    });
-    return obj;
+  return rows
+    .slice(1)
+    .map((row, i) => {
+      const data: Record<string, string> = {};
+      headers.forEach((h, c) => {
+        data[h] = (row[c] as string) ?? "";
+      });
+      return { row: DATA_ROW + i, data };
+    })
+    .filter((r) => Object.values(r.data).some((v) => v !== ""));
+}
+
+// Generic fetch: returns array of objects keyed by header row
+export async function getRows(tab: string): Promise<Record<string, string>[]> {
+  return (await getRowsIndexed(tab)).map((r) => r.data);
+}
+
+function colLetter(index: number): string {
+  let n = index + 1;
+  let s = "";
+  while (n > 0) {
+    const m = (n - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
+async function getHeaders(tab: string): Promise<string[]> {
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${tab}!A${HEADER_ROW}:AZ${HEADER_ROW}`,
+  });
+  return ((res.data.values?.[0] ?? []) as string[]).map((h) => h ?? "");
+}
+
+// Update specific cells of one row, addressed by header name. Other cells are untouched.
+export async function updateByHeaders(
+  tab: string,
+  sheetRow: number,
+  values: Record<string, string>
+): Promise<void> {
+  if (sheetRow < DATA_ROW) throw new Error("Refusing to write above the data rows");
+  const headers = await getHeaders(tab);
+  const data = Object.entries(values).map(([h, v]) => {
+    const i = headers.indexOf(h);
+    if (i < 0) throw new Error(`Column "${h}" not found on ${tab}`);
+    return { range: `${tab}!${colLetter(i)}${sheetRow}`, values: [[v]] };
+  });
+  await getSheetsClient().spreadsheets.values.batchUpdate({
+    spreadsheetId: SHEET_ID,
+    requestBody: { valueInputOption: "USER_ENTERED", data },
+  });
+}
+
+// Append a row after the last used row, placing each value under its header.
+export async function appendByHeaders(
+  tab: string,
+  values: Record<string, string>
+): Promise<number> {
+  const sheets = getSheetsClient();
+  const headers = await getHeaders(tab);
+  const used = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${tab}!A${DATA_ROW}:A`,
+  });
+  const nextRow = DATA_ROW + (used.data.values?.length ?? 0);
+  const lastCol = colLetter(headers.length - 1);
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID,
+    range: `${tab}!A${nextRow}:${lastCol}${nextRow}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [headers.map((h) => values[h] ?? "")] },
+  });
+  return nextRow;
+}
+
+// Clear the cells of one row (within the header columns). Leaves the row blank.
+export async function clearRow(tab: string, sheetRow: number): Promise<void> {
+  if (sheetRow < DATA_ROW) throw new Error("Refusing to clear above the data rows");
+  const headers = await getHeaders(tab);
+  await getSheetsClient().spreadsheets.values.clear({
+    spreadsheetId: SHEET_ID,
+    range: `${tab}!A${sheetRow}:${colLetter(headers.length - 1)}${sheetRow}`,
   });
 }
 

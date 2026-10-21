@@ -13,7 +13,7 @@ Business model context (for feature decisions, not enforced in code): two lanes 
 - **Framework:** Next.js (App Router) + TypeScript + Tailwind, created with `create-next-app`.
 - **Data layer:** `lib/sheets.ts` — a Google Sheets API client authenticated via `google-auth-library` JWT (service account), wrapping the `WaveCare_Data_Scaffold_v1` spreadsheet. No database; the Sheet is the system of record.
 - **API routes:** `app/api/<resource>/route.ts` — thin wrappers that call the typed fetchers in `lib/sheets.ts`, add computed/virtual columns server-side, and return JSON. One route per DataScaffold tab.
-- **Auth (built, untested against live Google):** Auth.js v5 (`auth.ts`) with Google sign-in. `lib/roles.ts` resolves a verified email to a role: admin = `ADMIN_EMAILS` env (default `jkeefe@wavecareconcierge.com` and `jbkeefe@gmail.com`); nurse = email in any `*email*` column on Nurses; family = email in any `*email*` column on Patients/Engagements. Unknown emails cannot sign in. Roles are re-resolved from the sheet on every token refresh. `lib/guard.ts` has `requireRolePage` / `requireRoleApi`. All data API routes are currently admin-only; nurse/family scoping comes with their screens.
+- **Auth (live on Vercel, admin login verified):** Auth.js v5 (`auth.ts`) with Google sign-in. `lib/roles.ts` resolves a verified email to a role: admin = `ADMIN_EMAILS` env (default `jkeefe@wavecareconcierge.com` and `jbkeefe@gmail.com`); nurse = email in any `*email*` column on Nurses; family = email in any `*email*` column on Patients/Engagements. Unknown emails cannot sign in. Role + `nurseId` are cached in the JWT and re-resolved from the sheet at most every 5 minutes (Sheets API read quota is limited). `lib/guard.ts` has `requireRolePage` / `requireRoleApi`. All data API routes are admin-only; nurse screens use server actions with their own checks. `/` routes by role: admin → `/admin`, nurse → `/nurse/availability`, family → `/family` (placeholder).
 - **Next.js 16 notes:** Cache Components is on — no `export const dynamic`; wrap request-time data (auth, searchParams) in `<Suspense>`. Fonts are system fonts (no Google Fonts fetch at build).
 - **Deploy target:** Vercel.
 
@@ -52,10 +52,14 @@ Tabs (7):
 
 Three-layer nurse availability model (for anyone extending this): Layer 1 = recurring weekly pattern (Nurses tab booleans). Layer 2/3 = date-specific overrides, both explicit availability windows and blackouts (Nurse_Availability tab). `isBlackedOut()` and `availabilitySummary()` in `lib/sheets.ts` implement the merge logic.
 
-## Role model (planned UI)
+## Writes (nurse availability — built)
+
+`/nurse/availability` (N2): weekly pattern writes `Avail_Mon..Sun` (Yes/No) on the Nurses row; date overrides append/clear rows on Nurse_Availability. Server actions in `app/nurse/availability/actions.ts`: the nurse's `NurseID` always comes from the session (never the form); removals verify the row's `NurseID` matches; admins may edit any nurse via `?nurse=<NurseID>`. Writes use header-aware helpers in `lib/sheets.ts` (`updateByHeaders`, `appendByHeaders`, `clearRow`), which refuse to touch rows above the data start. Removal clears the row (leaves a blank row; reads skip blanks). Validation + notes sanitising (formula-injection guard) live in `lib/availability.ts`. Sheet dropdown values: Shift_Type = Day/Night/24hr, Type = Available/Blackout, Avail_* = Yes/No/Unknown.
+
+## Role model
 
 - **Admin** — full access; matched to `jbkeefe@gmail.com`. Screens A1–A7.
-- **Nurse** — sees/manages own availability, compliance docs, assigned engagements. Screens N1–N4. N2 ("My Availability") is the two-part screen: recurring weekly pattern + date-range overrides against Nurse_Availability.
+- **Nurse** — sees/manages own availability (built), compliance docs, assigned engagements. Screens N1–N4. N2 ("My Availability") is the two-part screen: recurring weekly pattern + date-range overrides against Nurse_Availability.
 - **Family** — sees own engagement/shift info only. Screens F1–F3.
 
 Full screen-by-screen spec lives in the App Spec Claude Doc (see Key assets).

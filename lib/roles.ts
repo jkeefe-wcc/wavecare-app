@@ -1,4 +1,4 @@
-import { getNurses, getPatients, getEngagements } from "@/lib/sheets";
+import { getNurses, getPatients, getEngagements, nurseIdOf } from "@/lib/sheets";
 
 export type Role = "admin" | "nurse" | "family";
 
@@ -14,17 +14,28 @@ function rowEmails(row: Record<string, string>): string[] {
     .map(([, v]) => v.trim().toLowerCase());
 }
 
-// Resolve a verified Google email to a role. Unknown emails get null (no access).
-export async function resolveRole(email?: string | null): Promise<Role | null> {
-  if (!email) return null;
+export type Identity = { role: Role | null; nurseId?: string };
+
+// Resolve a verified Google email to a role (and, for nurses, their NurseID).
+// Unknown emails get role null (no access).
+export async function resolveIdentity(email?: string | null): Promise<Identity> {
+  if (!email) return { role: null };
   const e = email.toLowerCase();
-  if (ADMIN_EMAILS.includes(e)) return "admin";
+  if (ADMIN_EMAILS.includes(e)) return { role: "admin" };
   const [nurses, patients, engagements] = await Promise.all([
     getNurses(),
     getPatients(),
     getEngagements(),
   ]);
-  if (nurses.some((n) => rowEmails(n).includes(e))) return "nurse";
-  if ([...patients, ...engagements].some((r) => rowEmails(r).includes(e))) return "family";
-  return null;
+  const nurse = nurses.find((n) => rowEmails(n).includes(e));
+  if (nurse) {
+    const nurseId = nurseIdOf(nurse);
+    return nurseId ? { role: "nurse", nurseId } : { role: null };
+  }
+  if ([...patients, ...engagements].some((r) => rowEmails(r).includes(e))) return { role: "family" };
+  return { role: null };
+}
+
+export async function resolveRole(email?: string | null): Promise<Role | null> {
+  return (await resolveIdentity(email)).role;
 }
