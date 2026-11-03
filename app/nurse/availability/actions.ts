@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import {
-  TABS, getRows, getRowsIndexed, getHeaders, updateByHeaders, appendByHeaders, clearRow, nurseIdOf,
+  TABS, getRows, getRowsIndexed, getHeaders as getTabHeaders, pickHeader, availIdOf, getHeaders, updateByHeaders, appendByHeaders, clearRow, nurseIdOf,
 } from "@/lib/sheets";
 import { canChangeStatus, normalizeStatus, statusCells } from "@/lib/status";
 import { credentialStates, activationBlockers } from "@/lib/credentials";
@@ -74,8 +74,13 @@ export async function addOverride(formData: FormData) {
   let failed = false;
   try {
     const existing = await getRowsIndexed(TABS.NURSE_AVAILABILITY);
-    const id = nextAvailId(existing.map((r) => r.data.Avail_ID).filter(Boolean));
-    await appendByHeaders(TABS.NURSE_AVAILABILITY, { Avail_ID: id, NurseID: a.nurseId, ...result.value! });
+    const id = nextAvailId(existing.map((r) => availIdOf(r.data)).filter(Boolean));
+    const hdrs = await getTabHeaders(TABS.NURSE_AVAILABILITY);
+    await appendByHeaders(TABS.NURSE_AVAILABILITY, {
+      [pickHeader(hdrs, "AvailID", "Avail_ID")]: id,
+      [pickHeader(hdrs, "NurseID", "Nurse_ID")]: a.nurseId,
+      ...result.value!,
+    });
   } catch (err) {
     console.error("addOverride failed", err);
     failed = true;
@@ -90,7 +95,7 @@ export async function removeOverride(formData: FormData) {
   try {
     const rows = await getRowsIndexed(TABS.NURSE_AVAILABILITY);
     // Ownership check: the row must belong to the acting nurse.
-    const target = rows.find((r) => r.data.Avail_ID === availId && nurseIdOf(r.data) === a.nurseId);
+    const target = rows.find((r) => availIdOf(r.data) === availId && nurseIdOf(r.data) === a.nurseId);
     if (!target) back(a.nurseId, a.isAdmin, { error: "That entry wasn't found." });
     await clearRow(TABS.NURSE_AVAILABILITY, target!.row);
   } catch (err) {

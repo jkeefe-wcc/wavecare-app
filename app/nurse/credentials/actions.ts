@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
-import { TABS, getRowsIndexed, getRows, getHeaders, updateByHeaders, appendByHeaders, nurseIdOf } from "@/lib/sheets";
+import { TABS, getRowsIndexed, getRows, getHeaders, pickHeader, verifIdOf, updateByHeaders, appendByHeaders, nurseIdOf } from "@/lib/sheets";
 import {
   CREDENTIALS, valueOf, isPresent, validIsoDate, sanitizeField, nextVerifId, type CredDef,
 } from "@/lib/credentials";
@@ -40,9 +40,10 @@ const etNow = () =>
 
 async function recordVerification(def: CredDef, nurseId: string, value: string, by: string) {
   const [rows, headers] = await Promise.all([getRows(TABS.CREDENTIAL_VERIFICATION), getHeaders(TABS.CREDENTIAL_VERIFICATION)]);
-  const idHeader = headers.includes("NurseID") ? "NurseID" : "Nurse_ID"; // tolerate either spelling
+  const idHeader = pickHeader(headers, "NurseID", "Nurse_ID");
+  const verifHeader = pickHeader(headers, "VerifID", "Verif_ID");
   await appendByHeaders(TABS.CREDENTIAL_VERIFICATION, {
-    Verif_ID: nextVerifId(rows.map((r) => r.Verif_ID).filter(Boolean)),
+    [verifHeader]: nextVerifId(rows.map(verifIdOf).filter(Boolean)),
     [idHeader]: nurseId, Credential: def.key, Value_Verified: value, Verified_By: by, Verified_On: etNow(),
   });
 }

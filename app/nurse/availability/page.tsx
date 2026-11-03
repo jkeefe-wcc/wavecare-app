@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
-import { TABS, getRows, nurseIdOf, nurseNameOf } from "@/lib/sheets";
+import { TABS, getRows, nurseIdOf, nurseNameOf, availIdOf } from "@/lib/sheets";
 import { DAYS, SHIFT_TYPES, OVERRIDE_TYPES, normalizeWeekValue } from "@/lib/availability";
 import { saveWeek, addOverride, removeOverride, setStatus } from "./actions";
 import { STATUSES, normalizeStatus } from "@/lib/status";
@@ -135,7 +135,7 @@ async function AvailabilityView({ searchParams }: { searchParams: SP }) {
           {mine.map((a) => {
             const past = new Date(a.Date_To) < today;
             return (
-              <li key={a.Avail_ID} className={`flex items-center justify-between gap-3 py-3 ${past ? "opacity-50" : ""}`}>
+              <li key={availIdOf(a)} className={`flex items-center justify-between gap-3 py-3 ${past ? "opacity-50" : ""}`}>
                 <div>
                   <span className={`mr-2 rounded px-1.5 py-0.5 text-xs font-medium ${a.Type === "Blackout" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
                     {a.Type}
@@ -144,7 +144,7 @@ async function AvailabilityView({ searchParams }: { searchParams: SP }) {
                   {a.Notes && <div className="text-slate-500">{a.Notes}</div>}
                 </div>
                 <form action={removeOverride}>
-                  <input type="hidden" name="availId" value={a.Avail_ID} />
+                  <input type="hidden" name="availId" value={availIdOf(a)} />
                   {isAdmin && <input type="hidden" name="nurse" value={targetId} />}
                   <button className="text-slate-500 underline">Remove</button>
                 </form>

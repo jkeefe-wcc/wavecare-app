@@ -189,7 +189,14 @@ export async function getNurseAvailability() {
 
 // --- Header helpers ---
 // The sheet's headers are human-readable ("CT License Expiry", "NurseID"), and the
-// Nurse_Availability tab uses "Nurse_ID". These helpers hide that inconsistency.
+// Older headers used underscores (Nurse_ID, Avail_ID, Verif_ID); the convention is CamelCase IDs (NurseID, AvailID, VerifID).
+// These helpers accept either so a header rename in the sheet never breaks the app.
+
+export const availIdOf = (row: Record<string, string>) => row.AvailID || row.Avail_ID || "";
+export const verifIdOf = (row: Record<string, string>) => row.VerifID || row.Verif_ID || "";
+// First of the candidate header names that exists on the tab (falls back to the preferred spelling).
+export const pickHeader = (headers: string[], preferred: string, ...legacy: string[]) =>
+  [preferred, ...legacy].find((h) => headers.includes(h)) ?? preferred;
 
 export const nurseIdOf = (row: Record<string, string>) =>
   row.NurseID || row.Nurse_ID || "";
