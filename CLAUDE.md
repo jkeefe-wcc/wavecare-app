@@ -143,6 +143,20 @@ Housekeeping: delete sample data before real use — **"Katherine Donovan" (N-00
 - Optional consistency pass: rename remaining underscore headers to spaces (`Date_From` etc., `Avail_*`) — code would need to accept both first.
 - Pre-launch: delete Katherine Donovan sample data, publish OAuth consent screen, custom domain, Vercel Pro, attorney questions.
 
+## Data-integrity & security plan (pinned for 2026-11-03; the sheet is the production database)
+
+Risks: renamed/deleted headers or inserted columns, overwritten or deleted IDs and orphaned rows, simultaneous edits, anyone with edit access reading everything (incl. Patients), no change history beyond Sheets version history and the app's "by" columns.
+Planned, in order:
+1. **Staging copy of the sheet** with its own `SHEET_ID`, used by Vercel Preview deployments; test there, change production deliberately. Do any Claude-in-Sheets bulk edits on staging first.
+2. **Protected ranges**: lock header rows and ID/formula columns on every tab; allow-list the service account so the app can still write.
+3. **Nightly backup** of the sheet to a Drive folder (Apps Script time trigger or app cron), keep ~30 days.
+4. **Admin "sheet health" page**: required tabs/headers present, duplicate IDs, orphaned rows (e.g. verifications for a deleted nurse).
+5. **Tighter access**: share only with owner + service account, link-sharing off, 2-step verification on both admin Google accounts.
+6. **Audit log tab** (append-only: who/what/when for app writes) — later.
+7. **Rotate the service account key** before real data (new key → update Vercel `GOOGLE_PRIVATE_KEY` → delete old).
+Long term: move to Postgres (constraints, uniqueness, foreign keys, row-level access, audit, backups); contained because all access goes through `lib/sheets.ts`. Keep real patient/engagement data out of the sheet until the attorney clears it or the move is done. Nurse-registry data (license numbers, no SSNs) is acceptable in the sheet for the pilot with steps 1–5.
+The user has installed the Claude extension for Google Sheets (separate from this session's tools); it edits the live sheet directly, so the same fat-finger risk applies — prefer staging.
+
 ## Gotchas / working notes
 
 - The Claude session sandbox cannot reach Google (oauth2.googleapis.com is blocked), so the app can't be exercised against the real sheet from there; test logic with in-memory fakes and verify on Vercel/locally. Production build also works offline because fonts are system fonts.
