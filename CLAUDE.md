@@ -48,7 +48,7 @@ Tabs (7):
 4. **Shifts**
 5. **Compliance Docs** — license/cert expirations; columns include `Document Type`, `Related ID`, `Expiry Date` (the sheet's own `Days to Expiry` is a formula; the app recomputes it).
 6. **Concierge Services**
-7. **Nurse_Availability** — the second/third availability layer: date-ranged overrides on top of the Nurses tab's recurring booleans. Columns: `Avail_ID`, `NurseID`, `Date_From`, `Date_To`, `Shift_Type`, `Type` (`Available` or `Blackout`), `Notes`. `Blackout_Dates` on the Nurses tab is deprecated in favor of this tab.
+7. **Nurse_Availability** — the second/third availability layer: date-ranged overrides on top of the Nurses tab's recurring booleans. Columns: `AvailID`, `NurseID`, `Date_From`, `Date_To`, `Shift_Type`, `Type` (`Available` or `Blackout`), `Notes`. `Blackout_Dates` on the Nurses tab is deprecated in favor of this tab.
 
 Three-layer nurse availability model (for anyone extending this): Layer 1 = recurring weekly pattern (Nurses tab booleans). Layer 2/3 = date-specific overrides, both explicit availability windows and blackouts (Nurse_Availability tab). `isBlackedOut()` and `availabilitySummary()` in `lib/sheets.ts` implement the merge logic.
 
@@ -66,7 +66,7 @@ A shift is made of halves: Day, Night; 24h = both ("24hr" also accepted) (blank 
 ## Nurse onboarding (built)
 
 Code: `lib/credentials.ts` (requirements + state), `/admin/invite` (admin creates Pending row), `/nurse/credentials` (nurse enters own claims; admin edits all + "Mark verified"), Active gate in `setStatus` (`app/nurse/availability/actions.ts`, admins only).
-**Sheet requirements:** Nurses tab needs a `CPR/BLS Expiry` column; new tab `Credential_Verification` (title rows 1–2, header row 3): `Verif_ID, NurseID (or Nurse_ID), Credential, Value_Verified, Verified_By, Verified_On`. Verification stores a snapshot of the values checked; a credential is verified only while the current Nurses-tab values equal the snapshot, so any edit auto-unverifies. Required: CT license, malpractice, CPR/BLS, registry agreement date, background check date; NY license required only once any NY field is filled. Agreement/background are admin-recorded (saving them as admin also verifies). Expired = blocked. Design notes below.
+**Sheet requirements:** Nurses tab needs a `CPR/BLS Expiry` column; new tab `Credential_Verification` (title rows 1–2, header row 3): `VerifID, NurseID, Credential, Value_Verified, Verified_By, Verified_On`. Verification stores a snapshot of the values checked; a credential is verified only while the current Nurses-tab values equal the snapshot, so any edit auto-unverifies. Required: CT license, malpractice, CPR/BLS, registry agreement date, background check date; NY license required only once any NY field is filled. Agreement/background are admin-recorded (saving them as admin also verifies). Expired = blocked. Design notes below.
 
 Flow: **Invite → Self-complete → Verify → Activate.**
 1. Admin invites (name + email) → creates a Pending Nurses row. Sign-in is already gated by email-in-sheet, so the invite is the gate. No open public sign-up for the pilot (spam, unproven email ownership); a public "join as a nurse" form on the landing site can later feed the same Pending queue.
@@ -119,6 +119,7 @@ On Vercel set the same vars; the OAuth client's redirect URI must be `<site>/api
 
 ## Decisions & rationale
 
+- **ID headers are CamelCase with no underscore** (`NurseID`, `PatientID`, `AvailID`, `VerifID`…); other multi-word headers use spaces. Legacy underscore fields remain on Nurse_Availability (`Date_From`, `Date_To`, `Shift_Type`) and Nurses (`Avail_Mon..Sun`); the code accepts the old `Avail_ID`/`Verif_ID`/`Nurse_ID` spellings too (`availIdOf`, `verifIdOf`, `nurseIdOf`, `pickHeader`).
 - **Sheet as database (pilot):** the DataScaffold Google Sheet is the sole system of record; Vercel stores no data (only the login cookie and operational logs). Chosen for transparency and ease of hand-fixing. All access goes through `lib/sheets.ts`, so a later move to Postgres means swapping that layer plus a one-time import and a small header-mapping step. Sheet limits to remember: ~60 reads/min quota (hence the 5-minute role cache), no transactions (simultaneous edits can overwrite), no enforced uniqueness/links, slows past a few thousand rows. Revisit at real volume or when compliance requires it (row/column-level access, audit logs, a BAA).
 - **Custom Next.js app instead of AppSheet:** no per-seat cost, full control.
 - **Nurse edits go directly to the sheet** (no approval step). Admins can correct entries via `/nurse/availability?nurse=<NurseID>`.
