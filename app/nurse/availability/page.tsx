@@ -4,11 +4,13 @@ import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
 import { TABS, getRows, nurseIdOf, nurseNameOf } from "@/lib/sheets";
 import { DAYS, SHIFT_TYPES, OVERRIDE_TYPES, normalizeWeekValue } from "@/lib/availability";
-import { saveWeek, addOverride, removeOverride } from "./actions";
+import { saveWeek, addOverride, removeOverride, setStatus } from "./actions";
+import { STATUSES, normalizeStatus } from "@/lib/status";
 
 type SP = Promise<{ nurse?: string; error?: string; saved?: string }>;
 
 const SAVED: Record<string, string> = {
+  status: "Status updated.",
   week: "Weekly pattern saved.",
   override: "Entry added.",
   removed: "Entry removed.",
@@ -35,6 +37,7 @@ async function AvailabilityView({ searchParams }: { searchParams: SP }) {
     .filter((a) => nurseIdOf(a) === targetId)
     .sort((a, b) => new Date(a.Date_From).getTime() - new Date(b.Date_From).getTime());
 
+  const status = normalizeStatus(nurse.Status);
   const input = "mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm";
   const btn = "rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700";
 
@@ -63,6 +66,38 @@ async function AvailabilityView({ searchParams }: { searchParams: SP }) {
 
       {error && <p className="mt-4 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {saved && SAVED[saved] && <p className="mt-4 rounded bg-green-50 px-3 py-2 text-sm text-green-700">{SAVED[saved]}</p>}
+
+      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
+        <h2 className="text-lg font-medium text-slate-900">Status</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Current status: <span className="font-medium">{status}</span>
+        </p>
+        {isAdmin ? (
+          <form action={setStatus} className="mt-3 flex items-end gap-3">
+            <input type="hidden" name="nurse" value={targetId} />
+            <select name="status" className={input} defaultValue={status}>
+              {STATUSES.map((t) => <option key={t}>{t}</option>)}
+            </select>
+            <button className={btn}>Save status</button>
+          </form>
+        ) : status === "Active" || status === "Paused" ? (
+          <form action={setStatus} className="mt-3">
+            <input type="hidden" name="status" value={status === "Active" ? "Paused" : "Active"} />
+            <p className="mb-3 text-sm text-slate-500">
+              {status === "Active"
+                ? "Pause if you're not taking new engagements for a while. You won't appear when Wave Care Concierge builds shortlists."
+                : "You're currently hidden from shortlists. Resume when you're ready."}
+            </p>
+            <button className={btn}>{status === "Active" ? "Pause my profile" : "Resume (set Active)"}</button>
+          </form>
+        ) : (
+          <p className="mt-2 text-sm text-slate-500">
+            {status === "Pending"
+              ? "Your profile is being set up. Wave Care Concierge will activate it once everything is in place."
+              : "Contact Wave Care Concierge to change your status."}
+          </p>
+        )}
+      </section>
 
       <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="text-lg font-medium text-slate-900">Usual weekly pattern</h2>

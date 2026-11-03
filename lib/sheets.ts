@@ -69,7 +69,7 @@ function colLetter(index: number): string {
   return s;
 }
 
-async function getHeaders(tab: string): Promise<string[]> {
+export async function getHeaders(tab: string): Promise<string[]> {
   const sheets = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,

@@ -6,6 +6,7 @@ import {
   nurseIdOf, nurseNameOf, nurseCredentialExpiries,
 } from "@/lib/sheets";
 import { signOut } from "@/auth";
+import { normalizeStatus } from "@/lib/status";
 import { Suspense } from "react";
 
 // Sheet headers can vary slightly; pick the first column matching a pattern.
@@ -115,6 +116,7 @@ async function Dashboard() {
               <li key={nurseIdOf(n)} className="flex items-center justify-between p-3">
                 <span>
                   {nurseNameOf(n)}{" "}
+                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{normalizeStatus(n.Status)}</span>{" "}
                   <a href={`/nurse/availability?nurse=${encodeURIComponent(nurseIdOf(n))}`} className="text-xs text-slate-500 underline">edit availability</a>
                 </span>
                 <span className="text-slate-500">

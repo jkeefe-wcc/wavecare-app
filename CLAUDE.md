@@ -59,6 +59,10 @@ Three-layer nurse availability model (for anyone extending this): Layer 1 = recu
 ### Matching rules (`lib/availability.ts`)
 A shift is made of halves: Day, Night; 24hr = both (blank shift on an override = both). Per date and half: a Blackout covering it wins; else an Available override opens it; else the weekly pattern decides (Yes = both halves, Day/Night = that half, No/Unknown/blank = none). A range check requires every requested half on every date. `/admin/match` ("Find open nurses") uses `checkRange()` to list nurses open for the whole period vs partly open, flagging expired credentials. Framing: it builds a shortlist for an admin to present; the family chooses (never "assign").
 
+## Nurse status (`lib/status.ts`)
+
+`Status` on the Nurses tab: **Pending** (new joiner; blank/unrecognised also = Pending) → **Active** ⇄ **Paused**, or **Inactive**. A nurse can only switch Active ⇄ Paused (and only while in one of those); Pending and Inactive are admin-only, so nobody activates themselves. Admins set any status from the nurse's availability page (`/nurse/availability?nurse=<NurseID>`). **Inactive nurses cannot sign in** (`resolveIdentity` returns no role); Pending nurses can sign in and set availability but are never matched. `/admin/match` lists Active nurses only (checkbox adds Paused). Changes record `Status Changed By` / `Status Changed On` (ET) if those two columns exist on the Nurses tab (written by `statusCells`). Sheet dropdown for Status must be Pending, Active, Paused, Inactive. Role changes take up to 5 minutes to apply to an already-signed-in user (JWT cache).
+
 ## Role model
 
 - **Admin** — full access; `ADMIN_EMAILS` (default `jkeefe@wavecareconcierge.com`, `jbkeefe@gmail.com`; admin takes priority over nurse if an email is in both). Screens A1–A7.
@@ -109,7 +113,7 @@ The Patients tab holds name, DOB, address, surgery type/date, surgeon, hospital 
 ## Status & roadmap
 
 Built: Google login with role resolution; admin dashboard (counts, credential/compliance expiry, nurses, engagements); nurse My Availability (N2) with weekly Yes/Day/Night/No pattern + date overrides; admin "Find open nurses" (`/admin/match`); read-only admin API routes for all 7 tabs.
-Not built: remaining nurse screens (own credentials, engagements — N1/N3/N4); family screens F1–F3 (`/family` is a placeholder); remaining admin screens (A1–A7 spec); credential-expiry email automations (Auto-1…5); engagement/shift/concierge-service editing; write validation beyond availability.
+Not built: in-app "add nurse" (new nurses are added as sheet rows with Status Pending), remaining nurse screens (own credentials, engagements — N1/N3/N4); family screens F1–F3 (`/family` is a placeholder); remaining admin screens (A1–A7 spec); credential-expiry email automations (Auto-1…5); engagement/shift/concierge-service editing; write validation beyond availability.
 Housekeeping: delete sample data before real use — **"Katherine Donovan" (N-001), engagement E-001 and their documents are fictional scaffold entries**, and her placeholder email could grant sign-in to whoever owns it. Sheet dropdowns to fix: Shift_Type should be Day/Night/24hr (currently the list sits on the Type column), Type should be Available/Blackout, and `Avail_*` validation needs Day and Night added.
 
 ## Gotchas / working notes

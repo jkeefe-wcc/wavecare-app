@@ -4,15 +4,17 @@ import { requireRolePage } from "@/lib/guard";
 import {
   TABS, getRows, nurseIdOf, nurseNameOf, nurseCredentialExpiries,
 } from "@/lib/sheets";
+import { normalizeStatus } from "@/lib/status";
 import { SHIFT_TYPES, parseDay, checkRange, type OverrideRow } from "@/lib/availability";
 
-type SP = Promise<{ from?: string; to?: string; shift?: string }>;
+type SP = Promise<{ from?: string; to?: string; shift?: string; paused?: string }>;
 const MAX_DAYS = 90;
 
 async function MatchView({ searchParams }: { searchParams: SP }) {
   await connection();
   await requireRolePage("admin");
-  const { from = "", to = "", shift = "Day" } = await searchParams;
+  const { from = "", to = "", shift = "Day", paused = "" } = await searchParams;
+  const includePaused = paused === "1";
 
   const fromDay = parseDay(from);
   const toDay = parseDay(to);
@@ -38,11 +40,13 @@ async function MatchView({ searchParams }: { searchParams: SP }) {
       if (c.days < 0) expiredBy.set(c.nurseId, [...(expiredBy.get(c.nurseId) ?? []), c.document]);
     }
     for (const n of nurses) {
+      const st = normalizeStatus(n.Status);
+      if (st !== "Active" && !(includePaused && st === "Paused")) continue; // Pending/Inactive never listed
       const id = nurseIdOf(n);
       const mine = availability.filter((a) => nurseIdOf(a) === id) as unknown as OverrideRow[];
       const r = checkRange(n, mine, fromDay!, toDay!, shift);
       if (r.openDays === 0) continue;
-      const row = { id, name: nurseNameOf(n), status: n.Status, specialties: n.Specialties, expired: expiredBy.get(id) ?? [] };
+      const row = { id, name: nurseNameOf(n), status: normalizeStatus(n.Status), specialties: n.Specialties, expired: expiredBy.get(id) ?? [] };
       const gapDates = [...new Set(r.unavailable.map((u) => u.date))];
       detail.set(id, { open: r.openDays, total: r.daysChecked, gaps: gapDates });
       (r.openDays === r.daysChecked ? full : partial).push(row);
@@ -90,6 +94,9 @@ async function MatchView({ searchParams }: { searchParams: SP }) {
           <select name="shift" defaultValue={shiftOk ? shift : "Day"} className={input}>
             {SHIFT_TYPES.map((t) => <option key={t}>{t}</option>)}
           </select>
+        </label>
+        <label className="flex items-center gap-2 pb-2 text-sm text-slate-700">
+          <input type="checkbox" name="paused" value="1" defaultChecked={includePaused} /> Include paused
         </label>
         <button className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">Search</button>
       </form>

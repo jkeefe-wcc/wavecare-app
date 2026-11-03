@@ -4,8 +4,9 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import {
-  TABS, getRowsIndexed, updateByHeaders, appendByHeaders, clearRow, nurseIdOf,
+  TABS, getRowsIndexed, getHeaders, updateByHeaders, appendByHeaders, clearRow, nurseIdOf,
 } from "@/lib/sheets";
+import { canChangeStatus, normalizeStatus, statusCells } from "@/lib/status";
 import { DAYS, validateOverride, weekValues, nextAvailId } from "@/lib/availability";
 
 const PAGE = "/nurse/availability";
@@ -28,7 +29,13 @@ async function actor(formNurse: FormDataEntryValue | null) {
   const nurse = nurses.find((n) => nurseIdOf(n.data) === nurseId);
   if (!nurse) redirect("/login");
 
-  return { nurseId, nurseRow: nurse.row, isAdmin: session.role === "admin" };
+  return {
+    nurseId,
+    nurseRow: nurse.row,
+    nurseStatus: normalizeStatus(nurse.data.Status),
+    isAdmin: session.role === "admin",
+    who: `${session.user?.email ?? "unknown"} (${session.role})`,
+  };
 }
 
 function back(nurseId: string, isAdmin: boolean, params: Record<string, string> = {}): never {
@@ -91,4 +98,20 @@ export async function removeOverride(formData: FormData) {
     failed = true;
   }
   back(a.nurseId, a.isAdmin, failed ? { error: "Couldn't remove it. Please try again." } : { saved: "removed" });
+}
+
+export async function setStatus(formData: FormData) {
+  const a = await actor(formData.get("nurse"));
+  const check = canChangeStatus(a.isAdmin ? "admin" : "nurse", a.nurseStatus, String(formData.get("status") ?? ""));
+  if (!check.ok) back(a.nurseId, a.isAdmin, { error: check.error });
+
+  let failed = false;
+  try {
+    const headers = await getHeaders(TABS.NURSES);
+    await updateByHeaders(TABS.NURSES, a.nurseRow, statusCells(headers, check.target!, a.who));
+  } catch (err) {
+    console.error("setStatus failed", err);
+    failed = true;
+  }
+  back(a.nurseId, a.isAdmin, failed ? { error: "Couldn't save. Please try again." } : { saved: "status" });
 }

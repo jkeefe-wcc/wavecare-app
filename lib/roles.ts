@@ -1,4 +1,5 @@
 import { getNurses, getPatients, getEngagements, nurseIdOf } from "@/lib/sheets";
+import { normalizeStatus } from "@/lib/status";
 
 export type Role = "admin" | "nurse" | "family";
 
@@ -29,6 +30,7 @@ export async function resolveIdentity(email?: string | null): Promise<Identity> 
   ]);
   const nurse = nurses.find((n) => rowEmails(n).includes(e));
   if (nurse) {
+    if (normalizeStatus(nurse.Status) === "Inactive") return { role: null }; // removed by an admin
     const nurseId = nurseIdOf(nurse);
     return nurseId ? { role: "nurse", nurseId } : { role: null };
   }
