@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
-import { TABS, getRowsIndexed, getRows, updateByHeaders, appendByHeaders, nurseIdOf } from "@/lib/sheets";
+import { TABS, getRowsIndexed, getRows, getHeaders, updateByHeaders, appendByHeaders, nurseIdOf } from "@/lib/sheets";
 import {
   CREDENTIALS, valueOf, isPresent, validIsoDate, sanitizeField, nextVerifId, type CredDef,
 } from "@/lib/credentials";
@@ -39,10 +39,11 @@ const etNow = () =>
   new Intl.DateTimeFormat("sv-SE", { timeZone: "America/New_York", dateStyle: "short", timeStyle: "short" }).format(new Date());
 
 async function recordVerification(def: CredDef, nurseId: string, value: string, by: string) {
-  const rows = await getRows(TABS.CREDENTIAL_VERIFICATION);
+  const [rows, headers] = await Promise.all([getRows(TABS.CREDENTIAL_VERIFICATION), getHeaders(TABS.CREDENTIAL_VERIFICATION)]);
+  const idHeader = headers.includes("NurseID") ? "NurseID" : "Nurse_ID"; // tolerate either spelling
   await appendByHeaders(TABS.CREDENTIAL_VERIFICATION, {
     Verif_ID: nextVerifId(rows.map((r) => r.Verif_ID).filter(Boolean)),
-    NurseID: nurseId, Credential: def.key, Value_Verified: value, Verified_By: by, Verified_On: etNow(),
+    [idHeader]: nurseId, Credential: def.key, Value_Verified: value, Verified_By: by, Verified_On: etNow(),
   });
 }
 

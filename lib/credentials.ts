@@ -124,7 +124,7 @@ export function credentialStates(
     // Latest matching verification row wins (rows are appended chronologically).
     const v = [...verifs]
       .reverse()
-      .find((r) => r.NurseID === nurseId && r.Credential === def.key && r.Value_Verified === current);
+      .find((r) => (r.NurseID || r.Nurse_ID) === nurseId && r.Credential === def.key && r.Value_Verified === current);
     const verified = present && !!v;
     return {
       def, required, present, expired, verified,
