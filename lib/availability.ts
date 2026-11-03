@@ -1,5 +1,6 @@
 export const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
-export const SHIFT_TYPES = ["Day", "Night", "24hr"] as const;
+// Matches the sheet's Shift_Type dropdown (Day, Night, 24h). "24hr" is accepted and normalised to "24h".
+export const SHIFT_TYPES = ["Day", "Night", "24h"] as const;
 export const OVERRIDE_TYPES = ["Available", "Blackout"] as const;
 
 export type OverrideInput = {
@@ -40,7 +41,8 @@ export function validateOverride(
 ): { ok: true; value: OverrideValue } | { ok: false; error: string } {
   if (!(OVERRIDE_TYPES as readonly string[]).includes(input.type))
     return { ok: false, error: "Choose Available or Blackout." };
-  if (!(SHIFT_TYPES as readonly string[]).includes(input.shiftType))
+  const shiftType = input.shiftType.trim().toLowerCase() === "24hr" ? "24h" : input.shiftType;
+  if (!(SHIFT_TYPES as readonly string[]).includes(shiftType))
     return { ok: false, error: "Choose a shift type." };
   const from = validIso(input.dateFrom);
   const to = validIso(input.dateTo);
@@ -52,7 +54,7 @@ export function validateOverride(
       Type: input.type,
       Date_From: input.dateFrom,
       Date_To: input.dateTo,
-      Shift_Type: input.shiftType,
+      Shift_Type: shiftType,
       Notes: sanitizeNotes(input.notes),
     },
   };
@@ -91,7 +93,7 @@ export function weekValues(modes: Record<string, string>): Record<string, string
 }
 
 // ---- Date resolution ----
-// A shift is made of halves: Day, Night. 24hr = both. Blank shift on an override = both.
+// A shift is made of halves: Day, Night. 24h (or 24hr) = both. Blank shift on an override = both.
 export type Half = "Day" | "Night";
 
 export function halvesOfShift(shift?: string): Half[] {
