@@ -69,6 +69,7 @@ async function Dashboard() {
           <p className="text-sm text-slate-500">{session.user?.email}</p>
         </div>
         <div className="flex items-center gap-4">
+          <a href="/admin/invite" className="text-sm font-medium text-slate-900 underline">Invite a nurse</a>
           <a href="/admin/match" className="text-sm font-medium text-slate-900 underline">Find open nurses</a>
           <form action={async () => { "use server"; await signOut({ redirectTo: "/login" }); }}>
             <button className="text-sm text-slate-600 underline">Sign out</button>
@@ -117,7 +118,8 @@ async function Dashboard() {
                 <span>
                   {nurseNameOf(n)}{" "}
                   <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{normalizeStatus(n.Status)}</span>{" "}
-                  <a href={`/nurse/availability?nurse=${encodeURIComponent(nurseIdOf(n))}`} className="text-xs text-slate-500 underline">edit availability</a>
+                  <a href={`/nurse/availability?nurse=${encodeURIComponent(nurseIdOf(n))}`} className="text-xs text-slate-500 underline">edit availability</a>{" "}
+                  <a href={`/nurse/credentials?nurse=${encodeURIComponent(nurseIdOf(n))}`} className="text-xs text-slate-500 underline">credentials</a>
                 </span>
                 <span className="text-slate-500">
                   {availabilitySummary(n)}

@@ -59,6 +59,10 @@ async function AvailabilityView({ searchParams }: { searchParams: SP }) {
         )}
       </header>
 
+      <nav className="mt-2 text-sm">
+        <a className="text-slate-600 underline" href={`/nurse/credentials${isAdmin ? `?nurse=${encodeURIComponent(targetId)}` : ""}`}>Credentials</a>
+      </nav>
+
       <p className="mt-4 text-sm text-slate-600">
         This is information you share so Wave Care Concierge and families know when you&apos;re open to
         new engagements. It&apos;s always your decision whether to accept one.

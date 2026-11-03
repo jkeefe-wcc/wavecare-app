@@ -63,7 +63,10 @@ A shift is made of halves: Day, Night; 24h = both ("24hr" also accepted) (blank 
 
 `Status` on the Nurses tab: **Pending** (new joiner; blank/unrecognised also = Pending) → **Active** ⇄ **Paused**, or **Inactive**. A nurse can only switch Active ⇄ Paused (and only while in one of those); Pending and Inactive are admin-only, so nobody activates themselves. Admins set any status from the nurse's availability page (`/nurse/availability?nurse=<NurseID>`). **Inactive nurses cannot sign in** (`resolveIdentity` returns no role); Pending nurses can sign in and set availability but are never matched. `/admin/match` lists Active nurses only (checkbox adds Paused). Changes record `Status Changed By` / `Status Changed On` (ET) if those two columns exist on the Nurses tab (written by `statusCells`). Sheet dropdown for Status must be Pending, Active, Paused, Inactive. Role changes take up to 5 minutes to apply to an already-signed-in user (JWT cache).
 
-## Nurse onboarding (agreed design — not yet built)
+## Nurse onboarding (built)
+
+Code: `lib/credentials.ts` (requirements + state), `/admin/invite` (admin creates Pending row), `/nurse/credentials` (nurse enters own claims; admin edits all + "Mark verified"), Active gate in `setStatus` (`app/nurse/availability/actions.ts`, admins only).
+**Sheet requirements:** Nurses tab needs a `CPR/BLS Expiry` column; new tab `Credential_Verification` (title rows 1–2, header row 3): `Verif_ID, NurseID, Credential, Value_Verified, Verified_By, Verified_On`. Verification stores a snapshot of the values checked; a credential is verified only while the current Nurses-tab values equal the snapshot, so any edit auto-unverifies. Required: CT license, malpractice, CPR/BLS, registry agreement date, background check date; NY license required only once any NY field is filled. Agreement/background are admin-recorded (saving them as admin also verifies). Expired = blocked. Design notes below.
 
 Flow: **Invite → Self-complete → Verify → Activate.**
 1. Admin invites (name + email) → creates a Pending Nurses row. Sign-in is already gated by email-in-sheet, so the invite is the gate. No open public sign-up for the pilot (spam, unproven email ownership); a public "join as a nurse" form on the landing site can later feed the same Pending queue.
@@ -127,8 +130,8 @@ The Patients tab holds name, DOB, address, surgery type/date, surgeon, hospital 
 
 ## Status & roadmap
 
-Built: Google login with role resolution; admin dashboard (counts, credential/compliance expiry, nurses, engagements); nurse My Availability (N2) with weekly Yes/Day/Night/No pattern + date overrides; admin "Find open nurses" (`/admin/match`); read-only admin API routes for all 7 tabs.
-Not built: in-app "add nurse" (new nurses are added as sheet rows with Status Pending), remaining nurse screens (own credentials, engagements — N1/N3/N4); family screens F1–F3 (`/family` is a placeholder); remaining admin screens (A1–A7 spec); credential-expiry email automations (Auto-1…5); engagement/shift/concierge-service editing; write validation beyond availability.
+Built: Google login with role resolution; admin dashboard (counts, credential/compliance expiry, nurses, engagements); nurse Credentials + admin invite/verify (onboarding); nurse My Availability (N2) with weekly Yes/Day/Night/No pattern + date overrides; admin "Find open nurses" (`/admin/match`); read-only admin API routes for all 7 tabs.
+Not built: nurse engagements screen (N3/N4) and email-link sign-in; document uploads; family screens F1–F3 (`/family` is a placeholder); remaining admin screens (A1–A7 spec); credential-expiry email automations (Auto-1…5); engagement/shift/concierge-service editing; write validation beyond availability.
 Housekeeping: delete sample data before real use — **"Katherine Donovan" (N-001), engagement E-001 and their documents are fictional scaffold entries**, and her placeholder email could grant sign-in to whoever owns it. Sheet dropdowns to fix: (done: Shift_Type = Day/Night/24h, Type = Available/Blackout, `Avail_*` = Yes/No/Day/Night/Unknown, Status = Pending/Active/Paused/Inactive).
 
 ## Gotchas / working notes

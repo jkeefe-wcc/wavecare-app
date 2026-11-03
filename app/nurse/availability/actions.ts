@@ -4,9 +4,10 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import {
-  TABS, getRowsIndexed, getHeaders, updateByHeaders, appendByHeaders, clearRow, nurseIdOf,
+  TABS, getRows, getRowsIndexed, getHeaders, updateByHeaders, appendByHeaders, clearRow, nurseIdOf,
 } from "@/lib/sheets";
 import { canChangeStatus, normalizeStatus, statusCells } from "@/lib/status";
+import { credentialStates, activationBlockers } from "@/lib/credentials";
 import { DAYS, validateOverride, weekValues, nextAvailId } from "@/lib/availability";
 
 const PAGE = "/nurse/availability";
@@ -104,6 +105,18 @@ export async function setStatus(formData: FormData) {
   const a = await actor(formData.get("nurse"));
   const check = canChangeStatus(a.isAdmin ? "admin" : "nurse", a.nurseStatus, String(formData.get("status") ?? ""));
   if (!check.ok) back(a.nurseId, a.isAdmin, { error: check.error });
+
+  // Admins can only activate a nurse whose required credentials are all present, verified and unexpired.
+  if (check.target === "Active" && a.nurseStatus !== "Active") {
+    const [nurses, verifs] = await Promise.all([
+      getRows(TABS.NURSES),
+      getRows(TABS.CREDENTIAL_VERIFICATION).catch(() => [] as Record<string, string>[]),
+    ]);
+    const nurse = nurses.find((n) => nurseIdOf(n) === a.nurseId) ?? {};
+    const blockers = activationBlockers(credentialStates(nurse, verifs, a.nurseId));
+    if (a.isAdmin && blockers.length)
+      back(a.nurseId, a.isAdmin, { error: `Can't set Active yet — ${blockers.join("; ")}.` });
+  }
 
   let failed = false;
   try {

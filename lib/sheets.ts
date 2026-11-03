@@ -25,6 +25,7 @@ export const TABS = {
   COMPLIANCE_DOCS: "Compliance Docs",
   CONCIERGE_SERVICES: "Concierge Services",
   NURSE_AVAILABILITY: "Nurse_Availability",
+  CREDENTIAL_VERIFICATION: "Credential_Verification",
 } as const;
 
 // Fetch with absolute sheet row numbers (needed for targeted edits). Blank rows are skipped.
