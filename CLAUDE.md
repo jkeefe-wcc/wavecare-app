@@ -63,6 +63,21 @@ A shift is made of halves: Day, Night; 24h = both ("24hr" also accepted) (blank 
 
 `Status` on the Nurses tab: **Pending** (new joiner; blank/unrecognised also = Pending) → **Active** ⇄ **Paused**, or **Inactive**. A nurse can only switch Active ⇄ Paused (and only while in one of those); Pending and Inactive are admin-only, so nobody activates themselves. Admins set any status from the nurse's availability page (`/nurse/availability?nurse=<NurseID>`). **Inactive nurses cannot sign in** (`resolveIdentity` returns no role); Pending nurses can sign in and set availability but are never matched. `/admin/match` lists Active nurses only (checkbox adds Paused). Changes record `Status Changed By` / `Status Changed On` (ET) if those two columns exist on the Nurses tab (written by `statusCells`). Sheet dropdown for Status must be Pending, Active, Paused, Inactive. Role changes take up to 5 minutes to apply to an already-signed-in user (JWT cache).
 
+## Nurse onboarding (agreed design — not yet built)
+
+Flow: **Invite → Self-complete → Verify → Activate.**
+1. Admin invites (name + email) → creates a Pending Nurses row. Sign-in is already gated by email-in-sheet, so the invite is the gate. No open public sign-up for the pilot (spam, unproven email ownership); a public "join as a nurse" form on the landing site can later feed the same Pending queue.
+2. Nurse signs in, completes profile, license numbers/expiries, malpractice details; may set availability while Pending (never matched).
+3. Admin checks each credential against the primary source (e.g. CT public license lookup) and records `Verified By` / `Verified On` per credential. Nurse-entered values are claims until verified; editing a verified credential resets it to unverified.
+4. Admin can set Active only when all required credentials are verified (required list: owner to confirm — likely CT license, NY license if applicable, malpractice, CPR/BLS, signed independent-contractor agreement, background check cleared [date only]).
+Do not collect SSNs or background-check reports. Document uploads are deferred (sheet can't hold files; raises the same compliance question as Patients) — start with "verified" flags only. Google-only sign-in: add email-link sign-in if nurses lack Google accounts.
+
+Lexicon: nurses are matched to **engagements** the family selects them for; family chooses; never "assign"/"jobs".
+
+Domain plan: public landing site (families + nurses) on wavecareconcierge.com — separate project, not built; app/portal on a subdomain (e.g. portal.wavecareconcierge.com). Before real users: custom domain in Vercel + new OAuth redirect URI, publish consent screen, Vercel Pro.
+
+Order: nurse side first (add-nurse/onboarding+verification, own credentials/engagements N1/N3/N4, credential-expiry emails), then family F1–F3.
+
 ## Role model
 
 - **Admin** — full access; `ADMIN_EMAILS` (default `jkeefe@wavecareconcierge.com`, `jbkeefe@gmail.com`; admin takes priority over nurse if an email is in both). Screens A1–A7.
