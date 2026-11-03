@@ -135,6 +135,14 @@ Built: Google login with role resolution; admin dashboard (counts, credential/co
 Not built: nurse engagements screen (N3/N4) and email-link sign-in; document uploads; family screens F1–F3 (`/family` is a placeholder); remaining admin screens (A1–A7 spec); credential-expiry email automations (Auto-1…5); engagement/shift/concierge-service editing; write validation beyond availability.
 Housekeeping: delete sample data before real use — **"Katherine Donovan" (N-001), engagement E-001 and their documents are fictional scaffold entries**, and her placeholder email could grant sign-in to whoever owns it. Sheet dropdowns to fix: (done: Shift_Type = Day/Night/24h, Type = Available/Blackout, `Avail_*` = Yes/No/Day/Night/Unknown, Status = Pending/Active/Paused/Inactive).
 
+## Next steps / open items (as of 2026-11-02)
+
+- Admin-side onboarding verified live (invite, credentials, verify, Active gate, status audit columns). **Nurse's own sign-in/view not yet tested** — needs a real second Google account added as a test user on the OAuth consent screen (Testing mode only allows listed test users; fake addresses cannot be added).
+- No delete feature in the app by design: test/unwanted rows are removed by hand in the sheet (Nurses row, plus that NurseID's rows on Credential_Verification and Nurse_Availability).
+- Next: credential-expiry emails. Proposed default (not yet approved): daily Vercel cron; reminders at 60/30/14/7 days and on expiry, once per credential+expiry date; nurse gets reminders, admin gets a daily summary; sender Resend on wavecareconcierge.com (DNS records + API key entered by the user in Vercel); sent-log tab `Reminder_Log`. Alternative next: nurse engagements screen (N3/N4).
+- Optional consistency pass: rename remaining underscore headers to spaces (`Date_From` etc., `Avail_*`) — code would need to accept both first.
+- Pre-launch: delete Katherine Donovan sample data, publish OAuth consent screen, custom domain, Vercel Pro, attorney questions.
+
 ## Gotchas / working notes
 
 - The Claude session sandbox cannot reach Google (oauth2.googleapis.com is blocked), so the app can't be exercised against the real sheet from there; test logic with in-memory fakes and verify on Vercel/locally. Production build also works offline because fonts are system fonts.
