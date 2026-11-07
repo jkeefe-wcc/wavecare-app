@@ -54,6 +54,33 @@ export async function getRowsIndexed(
     .filter((r) => Object.values(r.data).some((v) => v !== ""));
 }
 
+// Headers plus rows in one read (used by the admin sheet-health check). Never throws: returns { error }.
+export async function getTableSafe(
+  tab: string
+): Promise<{ headers: string[]; rows: { row: number; data: Record<string, string> }[] } | { error: string }> {
+  try {
+    const res = await getSheetsClient().spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: `${tab}!A${HEADER_ROW}:AZ`,
+    });
+    const values = res.data.values ?? [];
+    const headers = ((values[0] ?? []) as string[]).map((h) => (h ?? "").trim());
+    const rows = values
+      .slice(1)
+      .map((row, i) => {
+        const data: Record<string, string> = {};
+        headers.forEach((h, c) => {
+          if (h && !(h in data)) data[h] = ((row[c] as string) ?? "").toString();
+        });
+        return { row: DATA_ROW + i, data };
+      })
+      .filter((r) => Object.values(r.data).some((v) => v !== ""));
+    return { headers, rows };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message.slice(0, 120) : "unknown error" };
+  }
+}
+
 // Generic fetch: returns array of objects keyed by header row
 export async function getRows(tab: string): Promise<Record<string, string>[]> {
   return (await getRowsIndexed(tab)).map((r) => r.data);

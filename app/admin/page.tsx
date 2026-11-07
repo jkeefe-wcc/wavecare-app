@@ -69,6 +69,7 @@ async function Dashboard() {
           <p className="text-sm text-slate-500">{session.user?.email}</p>
         </div>
         <div className="flex items-center gap-4">
+          <a href="/admin/health" className="text-sm text-slate-600 underline">Sheet health</a>
           <a href="/admin/invite" className="text-sm font-medium text-slate-900 underline">Invite a nurse</a>
           <a href="/admin/match" className="text-sm font-medium text-slate-900 underline">Find open nurses</a>
           <form action={async () => { "use server"; await signOut({ redirectTo: "/login" }); }}>

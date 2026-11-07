@@ -131,7 +131,7 @@ The Patients tab holds name, DOB, address, surgery type/date, surgeon, hospital 
 
 ## Status & roadmap
 
-Built: Google login with role resolution; admin dashboard (counts, credential/compliance expiry, nurses, engagements); nurse Credentials + admin invite/verify (onboarding); nurse My Availability (N2) with weekly Yes/Day/Night/No pattern + date overrides; admin "Find open nurses" (`/admin/match`); read-only admin API routes for all 7 tabs.
+Built: Google login with role resolution; admin dashboard (counts, credential/compliance expiry, nurses, engagements); nurse Credentials + admin invite/verify (onboarding); nurse My Availability (N2) with weekly Yes/Day/Night/No pattern + date overrides; admin "Find open nurses" (`/admin/match`); admin sheet health (`/admin/health`); read-only admin API routes for all 7 tabs.
 Not built: nurse engagements screen (N3/N4) and email-link sign-in; document uploads; family screens F1–F3 (`/family` is a placeholder); remaining admin screens (A1–A7 spec); credential-expiry email automations (Auto-1…5); engagement/shift/concierge-service editing; write validation beyond availability.
 Housekeeping: delete sample data before real use — **"Katherine Donovan" (N-001), engagement E-001 and their documents are fictional scaffold entries**, and her placeholder email could grant sign-in to whoever owns it. Sheet dropdowns to fix: (done: Shift_Type = Day/Night/24h, Type = Available/Blackout, `Avail_*` = Yes/No/Day/Night/Unknown, Status = Pending/Active/Paused/Inactive).
 
@@ -146,6 +146,7 @@ Housekeeping: delete sample data before real use — **"Katherine Donovan" (N-00
 ## Data-integrity & security plan (pinned for 2026-11-03; the sheet is the production database)
 
 Risks: renamed/deleted headers or inserted columns, overwritten or deleted IDs and orphaned rows, simultaneous edits, anyone with edit access reading everything (incl. Patients), no change history beyond Sheets version history and the app's "by" columns.
+Status 2026-11-07: staging sheet created (`WaveCare_Data_Scaffold_v1_STAGING`, ID `1LMOReiM29uL8KSwEQEL6WvKPYCYDcUHRFZP_0vtJurM`); `/admin/health` built (`lib/health.ts`); backup script + lockdown checklist in `ops/` (user to install/apply). Remaining: protected ranges, access tightening, backup install, key rotation, audit log.
 Planned, in order:
 1. **Staging copy of the sheet** with its own `SHEET_ID`, used by Vercel Preview deployments; test there, change production deliberately. Do any Claude-in-Sheets bulk edits on staging first.
 2. **Protected ranges**: lock header rows and ID/formula columns on every tab; allow-list the service account so the app can still write.
